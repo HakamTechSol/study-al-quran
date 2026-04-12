@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "591128829880",
+    "project_id": "studyalquran-4da2f",
+    "storage_bucket": "studyalquran-4da2f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:591128829880:android:c3d2af2569eee05519b94d",
+        "android_client_info": {
+          "package_name": "com.example.studyalquran"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC59h2ZzBOLS73qWksqq-7mm8AoS__9n0w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

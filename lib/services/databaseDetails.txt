@@ -1,0 +1,605 @@
+# 🔥 Firebase Collections Structure
+
+## 📁 Collection: `users`
+**Purpose:** Store all users (Admin, Teachers, Students) with basic info and role
+
+```json
+{
+  "uid": "auto_generated_firebase_uid",
+  "email": "user@example.com",
+  "name": "User Name",
+  "phone": "+923001234567",
+  "role": "admin | teacher | student",
+  "status": "active | inactive",
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `teachers`
+**Purpose:** Store teacher-specific details
+
+```json
+{
+  "teacherId": "same_as_firebase_uid",
+  "name": "Ali Khan",
+  "email": "teacher@school.com",
+  "subjects": ["Math", "Science", "Quran"],
+  "walletBalance": 15000.50,
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `students`
+**Purpose:** Store student-specific details
+
+```json
+{
+  "studentId": "same_as_firebase_uid",
+  "name": "Ahmed Raza",
+  "class": "Grade 5",
+  "parentPhone": "+923009876543",
+  "feeStatus": "paid | pending | overdue",
+  "assignedTeacherId": "teacher_firebase_uid",
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `attendance`
+**Purpose:** Daily attendance records
+
+```json
+{
+  "date": "2025-01-15",
+  "teacherId": "teacher_firebase_uid",
+  "studentId": "student_firebase_uid",
+  "status": "present | absent",
+  "time": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `walletTransactions`
+**Purpose:** Track all wallet transactions for teachers
+
+```json
+{
+  "teacherId": "teacher_firebase_uid",
+  "amount": 5000.00,
+  "type": "add | deduct",
+  "description": "Monthly salary payment",
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `notifications`
+**Purpose:** App notifications for users
+
+```json
+{
+  "userId": "firebase_uid",
+  "title": "New Assignment",
+  "body": "You have a new assignment in Math",
+  "read": false,
+  "timestamp": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `classes` (Optional)
+**Purpose:** Manage different classes/groups
+
+```json
+{
+  "className": "Grade 5 - Section A",
+  "teacherId": "teacher_firebase_uid",
+  "studentCount": 25,
+  "schedule": "Monday, Wednesday, Friday"
+}
+```
+
+---
+
+## 🔐 Firebase Security Rules
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - read own data, admin can write
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Teachers collection - read own data, admin can write
+    match /teachers/{teacherId} {
+      allow read: if request.auth != null && (request.auth.uid == teacherId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Students collection - teachers can read assigned students, admin full access
+    match /students/{studentId} {
+      allow read: if request.auth != null && (
+        get(/databases/$(database)/documents/students/$(studentId)).data.assignedTeacherId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.uid == studentId
+      );
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Attendance - teachers can write, students can read own
+    match /attendance/{attendanceId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Wallet transactions - teachers can read own, admin can write
+    match /walletTransactions/{transactionId} {
+      allow read: if request.auth != null && (
+        resource.data.teacherId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Notifications - users can read own
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
+```
+
+---
+
+## 🚀 Complete Flow Examples
+
+### 1️⃣ Admin Creates Teacher Account
+```dart
+final result = await firebaseService.createUser(
+  email: 'teacher@school.com',
+  password: 'SecurePass123',
+  role: 'teacher',
+  name: 'Ali Khan',
+  phone: '+923001234567',
+  additionalData: {
+    'subjects': ['Math', 'Science'],
+  },
+);
+```
+
+### 2️⃣ Admin Creates Student & Assigns to Teacher
+```dart
+// Step 1: Create student
+final studentResult = await firebaseService.createUser(
+  email: 'student@school.com',
+  password: 'StudentPass123',
+  role: 'student',
+  name: 'Ahmed Raza',
+  phone: '+923007654321',
+  additionalData: {
+    'class': 'Grade 5',
+    'parentPhone': '+923009876543',
+  },
+);
+
+// Step 2: Assign to teacher
+await firebaseService.assignStudentToTeacher(
+  studentId: studentResult['uid'],
+  teacherId: 'teacher_uid_here',
+);
+```
+
+### 3️⃣ Teacher Marks Attendance
+```dart
+await firebaseService.markAttendance(
+  teacherId: currentUserUid,
+  studentId: 'student_uid',
+  status: 'present',
+);
+```
+
+### 4️⃣ Admin Updates Teacher Wallet
+```dart
+await firebaseService.updateTeacherWallet(
+  teacherId: 'teacher_uid',
+  amount: 5000,
+  type: 'add',
+  description: 'Monthly salary - January 2025',
+);
+```
+
+---
+
+## 📱 pubspec.yaml Dependencies
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
+  google_fonts: ^6.1.0
+  get: ^4.6.6
+```
+
+---
+
+## 🔧 Firebase Initialization
+
+```dart
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(MyApp());
+}
+```
+
+---
+
+## 📊 Database Indexes (Required)
+
+In Firebase Console → Firestore → Indexes, create:
+
+1. **attendance**
+   - studentId (Ascending) + time (Descending)
+   - teacherId (Ascending) + date (Descending)
+
+2. **walletTransactions**
+   - teacherId (Ascending) + createdAt (Descending)
+
+3. **students**
+   - assignedTeacherId (Ascending) + createdAt (Descending)
+
+4. **notifications**
+   - userId (Ascending) + timestamp (Descending)
+
+---
+
+## ✅ Setup Checklist
+
+- [ ] Enable Firebase Authentication (Email/Password)
+- [ ] Create Firestore Database
+- [ ] Add Security Rules
+- [ ] Create required indexes
+- [ ] Add first admin user manually
+- [ ] Test login flow
+- [ ] Test CRUD operations
+
+
+
+# 🔥 Firebase Collections Structure
+
+## 📁 Collection: `users`
+**Purpose:** Store all users (Admin, Teachers, Students) with basic info and role
+
+```json
+{
+  "uid": "auto_generated_firebase_uid",
+  "email": "user@example.com",
+  "name": "User Name",
+  "phone": "+923001234567",
+  "role": "admin | teacher | student",
+  "status": "active | inactive",
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `teachers`
+**Purpose:** Store teacher-specific details
+
+```json
+{
+  "teacherId": "same_as_firebase_uid",
+  "name": "Ali Khan",
+  "email": "teacher@school.com",
+  "subjects": ["Math", "Science", "Quran"],
+  "walletBalance": 15000.50,
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `students`
+**Purpose:** Store student-specific details
+
+```json
+{
+  "studentId": "same_as_firebase_uid",
+  "name": "Ahmed Raza",
+  "class": "Grade 5",
+  "parentPhone": "+923009876543",
+  "feeStatus": "paid | pending | overdue",
+  "assignedTeacherId": "teacher_firebase_uid",
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `attendance`
+**Purpose:** Daily attendance records
+
+```json
+{
+  "date": "2025-01-15",
+  "teacherId": "teacher_firebase_uid",
+  "studentId": "student_firebase_uid",
+  "status": "present | absent",
+  "time": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `walletTransactions`
+**Purpose:** Track all wallet transactions for teachers
+
+```json
+{
+  "teacherId": "teacher_firebase_uid",
+  "amount": 5000.00,
+  "type": "add | deduct",
+  "description": "Monthly salary payment",
+  "createdAt": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `notifications`
+**Purpose:** App notifications for users
+
+```json
+{
+  "userId": "firebase_uid",
+  "title": "New Assignment",
+  "body": "You have a new assignment in Math",
+  "read": false,
+  "timestamp": "timestamp"
+}
+```
+
+---
+
+## 📁 Collection: `chats`
+**Purpose:** Store chat metadata (last message, unread counts)
+
+```json
+{
+  "chatId": "teacherUid_studentUid",
+  "teacherId": "teacher_firebase_uid",
+  "studentId": "student_firebase_uid",
+  "lastMessage": "Hello, how are you?",
+  "lastMessageTime": "timestamp",
+  "unreadCount_teacher": 0,
+  "unreadCount_student": 3
+}
+```
+
+### Subcollection: `chats/{chatId}/messages`
+**Purpose:** Store actual chat messages
+
+```json
+{
+  "messageId": "1234567890",
+  "text": "Message content here",
+  "senderId": "firebase_uid",
+  "senderRole": "teacher | student | system",
+  "messageType": "text | report | zoom_link",
+  "timestamp": "timestamp",
+  "read": false
+}
+```
+
+---
+
+## 📁 Collection: `classes` (Optional)
+**Purpose:** Manage different classes/groups
+
+```json
+{
+  "className": "Grade 5 - Section A",
+  "teacherId": "teacher_firebase_uid",
+  "studentCount": 25,
+  "schedule": "Monday, Wednesday, Friday"
+}
+```
+
+---
+
+## 🔐 Firebase Security Rules
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - read own data, admin can write
+    match /users/{userId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Teachers collection - read own data, admin can write
+    match /teachers/{teacherId} {
+      allow read: if request.auth != null && (request.auth.uid == teacherId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Students collection - teachers can read assigned students, admin full access
+    match /students/{studentId} {
+      allow read: if request.auth != null && (
+        get(/databases/$(database)/documents/students/$(studentId)).data.assignedTeacherId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.uid == studentId
+      );
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Attendance - teachers can write, students can read own
+    match /attendance/{attendanceId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'teacher';
+    }
+    
+    // Wallet transactions - teachers can read own, admin can write
+    match /walletTransactions/{transactionId} {
+      allow read: if request.auth != null && (
+        resource.data.teacherId == request.auth.uid ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+      allow create: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Notifications - users can read own
+    match /notifications/{notificationId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow write: if request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+  }
+}
+```
+
+---
+
+## 🚀 Complete Flow Examples
+
+### 1️⃣ Admin Creates Teacher Account
+```dart
+final result = await firebaseService.createUser(
+  email: 'teacher@school.com',
+  password: 'SecurePass123',
+  role: 'teacher',
+  name: 'Ali Khan',
+  phone: '+923001234567',
+  additionalData: {
+    'subjects': ['Math', 'Science'],
+  },
+);
+```
+
+### 2️⃣ Admin Creates Student & Assigns to Teacher
+```dart
+// Step 1: Create student
+final studentResult = await firebaseService.createUser(
+  email: 'student@school.com',
+  password: 'StudentPass123',
+  role: 'student',
+  name: 'Ahmed Raza',
+  phone: '+923007654321',
+  additionalData: {
+    'class': 'Grade 5',
+    'parentPhone': '+923009876543',
+  },
+);
+
+// Step 2: Assign to teacher
+await firebaseService.assignStudentToTeacher(
+  studentId: studentResult['uid'],
+  teacherId: 'teacher_uid_here',
+);
+```
+
+### 3️⃣ Teacher Marks Attendance
+```dart
+await firebaseService.markAttendance(
+  teacherId: currentUserUid,
+  studentId: 'student_uid',
+  status: 'present',
+);
+```
+
+### 4️⃣ Admin Updates Teacher Wallet
+```dart
+await firebaseService.updateTeacherWallet(
+  teacherId: 'teacher_uid',
+  amount: 5000,
+  type: 'add',
+  description: 'Monthly salary - January 2025',
+);
+```
+
+---
+
+## 📱 pubspec.yaml Dependencies
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^2.24.2
+  firebase_auth: ^4.16.0
+  cloud_firestore: ^4.14.0
+  google_fonts: ^6.1.0
+  get: ^4.6.6
+```
+
+---
+
+## 🔧 Firebase Initialization
+
+```dart
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(MyApp());
+}
+```
+
+---
+
+## 📊 Database Indexes (Required)
+
+In Firebase Console → Firestore → Indexes, create:
+
+1. **attendance**
+   - studentId (Ascending) + time (Descending)
+   - teacherId (Ascending) + date (Descending)
+
+2. **walletTransactions**
+   - teacherId (Ascending) + createdAt (Descending)
+
+3. **students**
+   - assignedTeacherId (Ascending) + createdAt (Descending)
+
+4. **notifications**
+   - userId (Ascending) + timestamp (Descending)
+
+---
+
+## ✅ Setup Checklist
+
+- [ ] Enable Firebase Authentication (Email/Password)
+- [ ] Create Firestore Database
+- [ ] Add Security Rules
+- [ ] Create required indexes
+- [ ] Add first admin user manually
+- [ ] Test login flow
+- [ ] Test CRUD operations
